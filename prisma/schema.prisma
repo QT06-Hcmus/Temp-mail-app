@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TempMailbox {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  provider          String
+  providerAccountId String?
+  token             String?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  messages          ReceivedMail[]
+}
+
+model ReceivedMail {
+  id                String   @id @default(cuid())
+  mailboxId         String
+  providerMessageId String
+  fromAddress       String
+  fromName          String   @default("")
+  subject           String   @default("(No Subject)")
+  preview           String   @default("")
+  textBody          String?  @default("")
+  htmlBody          String?  @default("")
+  receivedAt        DateTime @default(now())
+  detectedCodes     String   @default("[]")
+  isRead            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  mailbox           TempMailbox @relation(fields: [mailboxId], references: [id], onDelete: Cascade)
+
+  @@unique([mailboxId, providerMessageId])
+}
