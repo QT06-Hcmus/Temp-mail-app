@@ -7,6 +7,10 @@ import {
 } from './types';
 
 const BASE_URL = 'https://api.mail.tm';
+const CREATE_REQUEST_CONFIG = {
+  maxRetries: 0,
+  timeout: 5000,
+};
 
 function generateRandomString(length: number): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -58,7 +62,7 @@ export class MailTmProvider implements TempMailProvider {
     // Step 1: Get available domains
     const domainsRes = await fetchWithRetry(`${BASE_URL}/domains`, {
       headers: { 'Content-Type': 'application/json' },
-    });
+    }, CREATE_REQUEST_CONFIG);
 
     if (!domainsRes.ok) {
       throw new Error(`Failed to fetch domains: ${domainsRes.status} ${domainsRes.statusText}`);
@@ -84,7 +88,7 @@ export class MailTmProvider implements TempMailProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address, password }),
-    });
+    }, CREATE_REQUEST_CONFIG);
 
     if (!accountRes.ok) {
       const errorBody = await accountRes.text();
@@ -101,7 +105,7 @@ export class MailTmProvider implements TempMailProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address, password }),
-    });
+    }, CREATE_REQUEST_CONFIG);
 
     if (!tokenRes.ok) {
       throw new Error(`Failed to get mail.tm token: ${tokenRes.status} ${tokenRes.statusText}`);

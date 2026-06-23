@@ -4,6 +4,11 @@ import { getProvider } from '@/lib/providers';
 import { ProviderMailbox } from '@/lib/providers/types';
 import { detectCodes } from '@/lib/otp-detector';
 
+function toValidDate(value: string): Date {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
 // GET /api/mailboxes/[id]/messages — Fetch and sync messages
 export async function GET(
   _request: NextRequest,
@@ -40,6 +45,14 @@ export async function GET(
 
       // Upsert each new message into the database
       for (const msg of providerMessages) {
+        if (!msg.id) {
+          console.warn(
+            '[GET /api/mailboxes/[id]/messages] Skipping provider message without id:',
+            msg
+          );
+          continue;
+        }
+
         const textForDetection = msg.intro || msg.subject || '';
         const codes = detectCodes(textForDetection);
 
@@ -57,7 +70,7 @@ export async function GET(
             fromName: msg.from.name,
             subject: msg.subject || '(No Subject)',
             preview: msg.intro || '',
-            receivedAt: new Date(msg.createdAt),
+            receivedAt: toValidDate(msg.createdAt),
             detectedCodes: JSON.stringify(codes),
             isRead: msg.seen,
           },

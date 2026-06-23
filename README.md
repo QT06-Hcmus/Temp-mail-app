@@ -57,19 +57,20 @@ Then open http://localhost:3000 in your browser.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | `file:./dev.db` | SQLite database path |
-| `TEMP_MAIL_PROVIDER` | `mailtm` | Provider: `mailtm` or `onesecmail` |
+| `TEMP_MAIL_PROVIDER` | `tempmailplus` | Preferred provider: `tempmailplus`, `mailtm`, or `onesecmail`. The API falls back automatically if the preferred provider fails. |
 
 ### Email Providers
 
 | Provider | Auth | Delete Support | Reliability |
 |----------|------|----------------|-------------|
-| **mail.tm** (default) | JWT token | ✅ Messages & Account | ⭐⭐⭐⭐ |
-| **1secmail** (fallback) | None | ❌ Not supported | ⭐⭐⭐ |
+| **tempmail.plus** (default) | None | ✅ Messages | ⭐⭐⭐⭐ |
+| **mail.tm** (fallback) | JWT token | ✅ Messages & Account | ⭐⭐⭐ |
+| **1secmail** (fallback) | None | ❌ Not supported | ⭐⭐ |
 
 To switch providers, update `TEMP_MAIL_PROVIDER` in `.env`:
 
 ```env
-TEMP_MAIL_PROVIDER="onesecmail"
+TEMP_MAIL_PROVIDER="tempmailplus"
 ```
 
 ## 📁 Project Structure

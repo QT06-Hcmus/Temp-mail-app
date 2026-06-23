@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import ToastProvider from "@/components/ToastProvider";
 
@@ -26,7 +27,7 @@ export default function RootLayout({
           <header className="sticky top-0 z-50 glass-card border-b border-zinc-800/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex items-center justify-between h-16">
-                <a href="/" className="flex items-center gap-3 group">
+                <Link href="/" className="flex items-center gap-3 group">
                   <div className="relative">
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25 group-hover:shadow-violet-500/40 transition-shadow">
                       <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -35,7 +36,7 @@ export default function RootLayout({
                     </div>
                   </div>
                   <span className="text-lg font-bold gradient-text">TempMail Manager</span>
-                </a>
+                </Link>
 
                 <div className="flex items-center gap-2 text-xs text-zinc-500">
                   <span className="hidden sm:inline">Temporary Email Service</span>

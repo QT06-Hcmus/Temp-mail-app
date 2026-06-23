@@ -46,7 +46,13 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { fetchMailboxes(); }, [fetchMailboxes]);
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void fetchMailboxes();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [fetchMailboxes]);
 
   const createMailbox = async () => {
     setCreating(true);

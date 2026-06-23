@@ -30,6 +30,26 @@ const DEFAULT_HEADERS = {
   'DNT': '1',
 };
 
+interface TempMailPlusMessage {
+  id?: string | number;
+  mail_id?: string | number;
+  from?: string;
+  from_mail?: string;
+  from_name?: string;
+  subject?: string;
+  date?: string;
+  time?: string;
+  is_seen?: boolean;
+  is_new?: boolean;
+  attachments?: unknown;
+  attachment_count?: number;
+}
+
+interface TempMailPlusMessageDetail extends TempMailPlusMessage {
+  html?: string;
+  text?: string;
+}
+
 function generateRandomString(length: number): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -37,6 +57,18 @@ function generateRandomString(length: number): string {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return result;
+}
+
+function getMailboxAddress(mailbox: ProviderMailbox): string {
+  return mailbox.email || mailbox.providerAccountId;
+}
+
+function getMessageId(msg: TempMailPlusMessage): string {
+  return String(msg.mail_id ?? msg.id ?? '');
+}
+
+function getMessageDate(msg: TempMailPlusMessage): string {
+  return String(msg.date ?? msg.time ?? new Date().toISOString());
 }
 
 export class TempMailPlusProvider implements TempMailProvider {
@@ -51,16 +83,17 @@ export class TempMailPlusProvider implements TempMailProvider {
 
     return {
       email,
-      providerAccountId: username,
+      providerAccountId: email,
       provider: this.name,
     };
   }
 
   async getMessages(mailbox: ProviderMailbox): Promise<ProviderMessage[]> {
-    const username = mailbox.providerAccountId || mailbox.email.split('@')[0];
+    const email = getMailboxAddress(mailbox);
+
     try {
       const res = await fetchWithRetry(
-        `${BASE_URL}/mails?email=${encodeURIComponent(username)}&limit=20&page=1`,
+        `${BASE_URL}/mails?email=${encodeURIComponent(email)}&limit=20&page=1`,
         { headers: DEFAULT_HEADERS }
       );
 
@@ -68,24 +101,25 @@ export class TempMailPlusProvider implements TempMailProvider {
         throw new Error(`Failed to fetch messages: ${res.status} ${res.statusText}`);
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as { mail_list?: TempMailPlusMessage[] };
       const mailList = data.mail_list || [];
 
       if (!Array.isArray(mailList)) {
         return [];
       }
 
-      return mailList.map((msg: any) => ({
-        id: String(msg.id || ''),
+      return mailList.map((msg) => ({
+        id: getMessageId(msg),
         from: {
-          name: '',
-          address: String(msg.from || ''),
+          name: String(msg.from_name || ''),
+          address: String(msg.from_mail || msg.from || ''),
         },
         subject: String(msg.subject || '(No Subject)'),
         intro: String(msg.subject || ''),
-        createdAt: String(msg.date || new Date().toISOString()),
-        seen: Boolean(msg.is_seen),
-        hasAttachments: Boolean(msg.attachments),
+        createdAt: getMessageDate(msg),
+        seen: typeof msg.is_seen === 'boolean' ? msg.is_seen : !Boolean(msg.is_new),
+        hasAttachments:
+          Boolean(msg.attachments) || Number(msg.attachment_count || 0) > 0,
       }));
     } catch (error) {
       console.error('[TempMailPlusProvider] Error fetching messages:', error);
@@ -97,9 +131,9 @@ export class TempMailPlusProvider implements TempMailProvider {
     mailbox: ProviderMailbox,
     messageId: string
   ): Promise<ProviderMessageDetail> {
-    const username = mailbox.providerAccountId || mailbox.email.split('@')[0];
+    const email = getMailboxAddress(mailbox);
     const res = await fetchWithRetry(
-      `${BASE_URL}/mails/${messageId}?email=${encodeURIComponent(username)}`,
+      `${BASE_URL}/mails/${messageId}?email=${encodeURIComponent(email)}`,
       { headers: DEFAULT_HEADERS }
     );
 
@@ -107,21 +141,23 @@ export class TempMailPlusProvider implements TempMailProvider {
       throw new Error(`Failed to fetch message ${messageId}: ${res.status} ${res.statusText}`);
     }
 
-    const msg = await res.json();
+    const msg = (await res.json()) as TempMailPlusMessageDetail;
 
     return {
-      id: String(msg.id || messageId),
+      id: getMessageId(msg) || messageId,
       from: {
-        name: '',
-        address: String(msg.from || ''),
+        name: String(msg.from_name || ''),
+        address: String(msg.from_mail || msg.from || ''),
       },
       subject: String(msg.subject || '(No Subject)'),
       intro: String(msg.subject || ''),
       text: String(msg.text || ''),
       html: String(msg.html || msg.text || ''),
-      createdAt: String(msg.date || new Date().toISOString()),
-      seen: Boolean(msg.is_seen),
-      hasAttachments: Array.isArray(msg.attachments) && msg.attachments.length > 0,
+      createdAt: getMessageDate(msg),
+      seen: typeof msg.is_seen === 'boolean' ? msg.is_seen : !Boolean(msg.is_new),
+      hasAttachments:
+        (Array.isArray(msg.attachments) && msg.attachments.length > 0) ||
+        Number(msg.attachment_count || 0) > 0,
     };
   }
 
@@ -129,13 +165,18 @@ export class TempMailPlusProvider implements TempMailProvider {
     mailbox: ProviderMailbox,
     messageId: string
   ): Promise<boolean> {
-    const username = mailbox.providerAccountId || mailbox.email.split('@')[0];
+    const email = getMailboxAddress(mailbox);
+
     try {
       const res = await fetchWithRetry(
-        `${BASE_URL}/mails/${messageId}?email=${encodeURIComponent(username)}`,
+        `${BASE_URL}/mails/${messageId}`,
         {
           method: 'DELETE',
-          headers: DEFAULT_HEADERS,
+          headers: {
+            ...DEFAULT_HEADERS,
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          },
+          body: new URLSearchParams({ email, epin: '' }).toString(),
         }
       );
       if (!res.ok) return false;

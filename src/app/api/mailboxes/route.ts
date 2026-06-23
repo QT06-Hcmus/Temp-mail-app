@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getProvider } from '@/lib/providers';
+import { getProviderFallbacks, ProviderMailbox } from '@/lib/providers';
 
 // GET /api/mailboxes — List all mailboxes
 export async function GET() {
@@ -36,8 +36,27 @@ export async function POST(request: NextRequest) {
       // No body or invalid JSON — use default provider
     }
 
-    const provider = getProvider(providerName);
-    const mailboxData = await provider.createMailbox();
+    const errors: string[] = [];
+    let mailboxData: ProviderMailbox | undefined;
+
+    for (const provider of getProviderFallbacks(providerName)) {
+      try {
+        mailboxData = await provider.createMailbox();
+        break;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown provider error';
+        errors.push(`${provider.name}: ${message}`);
+        console.warn(
+          `[POST /api/mailboxes] Provider ${provider.name} failed, trying next fallback:`,
+          error
+        );
+      }
+    }
+
+    if (!mailboxData) {
+      throw new Error(`All temp-mail providers failed: ${errors.join(' | ')}`);
+    }
 
     const mailbox = await prisma.tempMailbox.create({
       data: {

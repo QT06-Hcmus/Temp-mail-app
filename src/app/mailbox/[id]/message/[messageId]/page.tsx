@@ -70,12 +70,19 @@ export default function MessageDetailPage() {
     }
   }, [mailboxId, messageId]);
 
-  useEffect(() => { fetchMessage(); }, [fetchMessage]);
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      void fetchMessage();
+    }, 0);
 
+    return () => clearTimeout(timeoutId);
+  }, [fetchMessage]);
+
+  const htmlBody = message?.htmlBody ?? '';
   const sanitizedHtml = useMemo(() => {
-    if (!message?.htmlBody) return '';
-    return sanitizeHtml(message.htmlBody);
-  }, [message?.htmlBody]);
+    if (!htmlBody) return '';
+    return sanitizeHtml(htmlBody);
+  }, [htmlBody]);
 
   if (loading) {
     return (

@@ -89,8 +89,12 @@ export default function MailboxDetailPage() {
   }, [id, addToast]);
 
   useEffect(() => {
-    fetchMailbox();
-    fetchMessages();
+    const timeoutId = setTimeout(() => {
+      void fetchMailbox();
+      void fetchMessages();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [fetchMailbox, fetchMessages]);
 
   // Auto-refresh
