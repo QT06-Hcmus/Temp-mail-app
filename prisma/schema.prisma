@@ -9,6 +9,7 @@ datasource db {
 
 model TempMailbox {
   id                String   @id @default(cuid())
+  name              String   @default("")
   email             String   @unique
   provider          String
   providerAccountId String?

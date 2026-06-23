@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getProviderFallbacks, ProviderMailbox } from '@/lib/providers';
 
+function normalizeMailboxName(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 80);
+}
+
 // GET /api/mailboxes — List all mailboxes
 export async function GET() {
   try {
@@ -28,10 +33,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     let providerName: string | undefined;
+    let mailboxName = '';
 
     try {
       const body = await request.json();
       providerName = body?.provider;
+      mailboxName = normalizeMailboxName(body?.name);
     } catch {
       // No body or invalid JSON — use default provider
     }
@@ -60,6 +67,7 @@ export async function POST(request: NextRequest) {
 
     const mailbox = await prisma.tempMailbox.create({
       data: {
+        name: mailboxName,
         email: mailboxData.email,
         provider: mailboxData.provider,
         providerAccountId: mailboxData.providerAccountId || null,

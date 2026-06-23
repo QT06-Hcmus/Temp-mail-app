@@ -3,6 +3,11 @@ import { prisma } from '@/lib/prisma';
 import { getProvider } from '@/lib/providers';
 import { ProviderMailbox } from '@/lib/providers/types';
 
+function normalizeMailboxName(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 80);
+}
+
 // GET /api/mailboxes/[id] — Get a single mailbox
 export async function GET(
   _request: NextRequest,
@@ -32,6 +37,36 @@ export async function GET(
     console.error('[GET /api/mailboxes/[id]] Error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch mailbox' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/mailboxes/[id] — Update mailbox metadata
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const name = normalizeMailboxName(body?.name);
+
+    const mailbox = await prisma.tempMailbox.update({
+      where: { id },
+      data: { name },
+      include: {
+        _count: {
+          select: { messages: true },
+        },
+      },
+    });
+
+    return NextResponse.json(mailbox);
+  } catch (error) {
+    console.error('[PATCH /api/mailboxes/[id]] Error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update mailbox' },
       { status: 500 }
     );
   }
