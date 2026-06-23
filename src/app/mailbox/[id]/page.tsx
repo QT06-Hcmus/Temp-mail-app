@@ -10,6 +10,7 @@ import CodeBadge from '@/components/CodeBadge';
 
 interface Mailbox {
   id: string;
+  name: string;
   email: string;
   provider: string;
   createdAt: string;
@@ -55,6 +56,9 @@ export default function MailboxDetailPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -114,6 +118,41 @@ export default function MailboxDetailPage() {
     if (mailbox) {
       navigator.clipboard.writeText(mailbox.email);
       addToast('Đã copy email!', 'success');
+    }
+  };
+
+  const startEditingName = () => {
+    setNameDraft(mailbox?.name || '');
+    setEditingName(true);
+  };
+
+  const cancelEditingName = () => {
+    setNameDraft('');
+    setEditingName(false);
+  };
+
+  const saveMailboxName = async () => {
+    if (!mailbox) return;
+
+    setSavingName(true);
+    try {
+      const res = await fetch(`/api/mailboxes/${mailbox.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameDraft }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Lưu tên thất bại');
+      }
+      const updatedMailbox = await res.json();
+      setMailbox(updatedMailbox);
+      cancelEditingName();
+      addToast('Đã lưu tên mailbox', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Lỗi lưu tên', 'error');
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -180,7 +219,52 @@ export default function MailboxDetailPage() {
                 </svg>
               </div>
               <div className="min-w-0">
-                <p className="text-xl font-mono font-bold text-zinc-100 truncate">{mailbox?.email}</p>
+                {editingName ? (
+                  <form
+                    className="mb-2 flex max-w-xl items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveMailboxName();
+                    }}
+                  >
+                    <input
+                      value={nameDraft}
+                      onChange={(event) => setNameDraft(event.target.value)}
+                      maxLength={80}
+                      autoFocus
+                      placeholder="Tên mailbox"
+                      className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-violet-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingName}
+                      className="rounded-lg bg-violet-500/20 px-3 py-2 text-xs font-medium text-violet-300 transition hover:bg-violet-500/30 disabled:opacity-50"
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditingName}
+                      className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+                    >
+                      Hủy
+                    </button>
+                  </form>
+                ) : (
+                  <div className="mb-1 flex items-center gap-2">
+                    <p className={`truncate text-xl font-bold ${mailbox?.name ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                      {mailbox?.name || 'Chưa đặt tên'}
+                    </p>
+                    <button
+                      onClick={startEditingName}
+                      className="rounded-md px-1.5 py-1 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-violet-300"
+                      title="Đổi tên mailbox"
+                    >
+                      Sửa
+                    </button>
+                  </div>
+                )}
+                <p className="text-sm font-mono font-semibold text-zinc-300 truncate">{mailbox?.email}</p>
                 <p className="text-xs text-zinc-500">
                   {mailbox?.provider} • Tạo {mailbox ? timeAgo(mailbox.createdAt) : ''}
                 </p>

@@ -8,6 +8,7 @@ import EmptyState from '@/components/EmptyState';
 
 interface Mailbox {
   id: string;
+  name: string;
   email: string;
   provider: string;
   createdAt: string;
@@ -29,6 +30,10 @@ export default function DashboardPage() {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [newMailboxName, setNewMailboxName] = useState('');
+  const [editingMailboxId, setEditingMailboxId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [savingNameId, setSavingNameId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
 
@@ -57,18 +62,56 @@ export default function DashboardPage() {
   const createMailbox = async () => {
     setCreating(true);
     try {
-      const res = await fetch('/api/mailboxes', { method: 'POST' });
+      const res = await fetch('/api/mailboxes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newMailboxName }),
+      });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Tạo email thất bại');
       }
       const newMailbox = await res.json();
       setMailboxes(prev => [newMailbox, ...prev]);
+      setNewMailboxName('');
       addToast(`Đã tạo: ${newMailbox.email}`, 'success');
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Lỗi tạo email', 'error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const startEditingName = (mailbox: Mailbox) => {
+    setEditingMailboxId(mailbox.id);
+    setEditingName(mailbox.name || '');
+  };
+
+  const cancelEditingName = () => {
+    setEditingMailboxId(null);
+    setEditingName('');
+  };
+
+  const saveMailboxName = async (id: string) => {
+    setSavingNameId(id);
+    try {
+      const res = await fetch(`/api/mailboxes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editingName }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Lưu tên thất bại');
+      }
+      const updatedMailbox = await res.json();
+      setMailboxes(prev => prev.map(m => (m.id === id ? updatedMailbox : m)));
+      cancelEditingName();
+      addToast('Đã lưu tên mailbox', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Lỗi lưu tên', 'error');
+    } finally {
+      setSavingNameId(null);
     }
   };
 
@@ -99,25 +142,34 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-lg max-w-xl mx-auto mb-8">
           Tạo email tạm thời, nhận mail thật, tự động phát hiện mã OTP
         </p>
-        <button
-          onClick={createMailbox}
-          disabled={creating}
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold text-base shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          {creating ? (
-            <>
-              <LoadingSpinner size="sm" />
-              Đang tạo...
-            </>
-          ) : (
-            <>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Tạo Temp Mail
-            </>
-          )}
-        </button>
+        <div className="mx-auto flex max-w-xl flex-col gap-3 sm:flex-row">
+          <input
+            value={newMailboxName}
+            onChange={(event) => setNewMailboxName(event.target.value)}
+            maxLength={80}
+            placeholder="Tên gợi nhớ, ví dụ: Shopee, Facebook..."
+            className="min-w-0 flex-1 rounded-xl border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm text-zinc-100 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+          />
+          <button
+            onClick={createMailbox}
+            disabled={creating}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold text-base shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {creating ? (
+              <>
+                <LoadingSpinner size="sm" />
+                Đang tạo...
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Tạo Temp Mail
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -172,10 +224,57 @@ export default function DashboardPage() {
                 </span>
               </div>
 
-              {/* Email */}
-              <p className="text-sm font-mono text-zinc-200 truncate" title={mb.email}>
-                {mb.email}
-              </p>
+              {/* Name + Email */}
+              <div className="min-w-0 space-y-1">
+                {editingMailboxId === mb.id ? (
+                  <form
+                    className="flex items-center gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveMailboxName(mb.id);
+                    }}
+                  >
+                    <input
+                      value={editingName}
+                      onChange={(event) => setEditingName(event.target.value)}
+                      maxLength={80}
+                      autoFocus
+                      placeholder="Tên mailbox"
+                      className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950/70 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-violet-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={savingNameId === mb.id}
+                      className="rounded-lg bg-violet-500/20 px-3 py-2 text-xs font-medium text-violet-300 transition hover:bg-violet-500/30 disabled:opacity-50"
+                    >
+                      Lưu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditingName}
+                      className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-700"
+                    >
+                      Hủy
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className={`truncate text-base font-semibold ${mb.name ? 'text-zinc-100' : 'text-zinc-500'}`}>
+                      {mb.name || 'Chưa đặt tên'}
+                    </p>
+                    <button
+                      onClick={() => startEditingName(mb)}
+                      className="rounded-md px-1.5 py-1 text-xs text-zinc-500 transition hover:bg-zinc-800 hover:text-violet-300"
+                      title="Đổi tên mailbox"
+                    >
+                      Sửa
+                    </button>
+                  </div>
+                )}
+                <p className="text-sm font-mono text-zinc-200 truncate" title={mb.email}>
+                  {mb.email}
+                </p>
+              </div>
 
               {/* Meta */}
               <div className="flex items-center gap-4 text-xs text-zinc-500">
